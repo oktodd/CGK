@@ -1,0 +1,1977 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>Evacuation Crowd Simulation — WebGL2</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Rajdhani:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0
+        }
+
+        :root {
+            --bg: #0a0b0d;
+            --bg2: #0f1114;
+            --bg3: #141720;
+            --amber: #e8a020;
+            --amber2: #f0c060;
+            --amber-dim: #7a4e08;
+            --green: #3de88a;
+            --green-dim: #1a5c3a;
+            --red: #e84040;
+            --red-dim: #5c1a1a;
+            --blue: #40a8e8;
+            --blue-dim: #1a3c5c;
+            --cyan: #20d8e0;
+            --text: #c8c4b0;
+            --text2: #7a7260;
+            --text3: #3a3628;
+            --border: #2a2820;
+            --border2: #3a3628;
+            --mono: 'JetBrains Mono', monospace;
+            --ui: 'Rajdhani', sans-serif;
+            --PW: 272px;
+            --TH: 42px;
+            --BH: 32px;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--mono)
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 999;
+            background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0, 0, 0, 0.05) 3px, rgba(0, 0, 0, 0.05) 4px)
+        }
+
+        /* TOPBAR */
+        #topbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: var(--TH);
+            z-index: 100;
+            background: var(--bg2);
+            border-bottom: 1px solid var(--border2);
+            display: flex;
+            align-items: center
+        }
+
+        .tb-logo {
+            padding: 0 18px;
+            font-family: var(--ui);
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: .22em;
+            text-transform: uppercase;
+            color: var(--amber);
+            border-right: 1px solid var(--border2);
+            height: 100%;
+            display: flex;
+            align-items: center;
+            gap: 8px
+        }
+
+        .tbi {
+            padding: 0 14px;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            border-right: 1px solid var(--border2);
+            font-size: 10px;
+            letter-spacing: .1em;
+            color: var(--text2)
+        }
+
+        .tbi .v {
+            color: var(--text);
+            font-size: 11px
+        }
+
+        .tb-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--text3);
+            flex-shrink: 0
+        }
+
+        .tb-dot.run {
+            background: var(--green);
+            box-shadow: 0 0 8px var(--green);
+            animation: blink 1.2s infinite
+        }
+
+        .tb-dot.pause {
+            background: var(--amber);
+            box-shadow: 0 0 6px var(--amber)
+        }
+
+        .tb-dot.done {
+            background: var(--blue);
+            box-shadow: 0 0 6px var(--blue)
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: 1
+            }
+
+            50% {
+                opacity: .35
+            }
+        }
+
+        .tb-tag {
+            margin-left: auto;
+            padding: 0 16px;
+            font-size: 9px;
+            letter-spacing: .14em;
+            color: var(--text3);
+            text-transform: uppercase
+        }
+
+        /* BOTBAR */
+        #botbar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: var(--BH);
+            z-index: 100;
+            background: var(--bg2);
+            border-top: 1px solid var(--border2);
+            display: flex;
+            align-items: center;
+            padding: 0 14px;
+            gap: 20px
+        }
+
+        .bbi {
+            font-size: 9px;
+            letter-spacing: .1em;
+            color: var(--text3);
+            display: flex;
+            align-items: center;
+            gap: 5px
+        }
+
+        .bbi .v {
+            color: var(--text2)
+        }
+
+        /* SIM AREA */
+        #sim-wrap {
+            position: fixed;
+            left: calc(var(--PW) + 6px);
+            right: calc(var(--PW) + 6px);
+            top: calc(var(--TH) + 6px);
+            bottom: calc(var(--BH) + 6px);
+            z-index: 1;
+            border: 1px solid var(--border2);
+            border-radius: 2px;
+            overflow: hidden;
+            background: var(--bg)
+        }
+
+        #glcanvas {
+            display: block;
+            width: 100%;
+            height: 100%
+        }
+
+        #ovcanvas {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 4
+        }
+
+        #idle-msg {
+            position: absolute;
+            inset: 0;
+            z-index: 8;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            opacity: 0;
+            transition: opacity .4s
+        }
+
+        #idle-msg.show {
+            opacity: 1
+        }
+
+        #idle-msg .il {
+            font-size: 11px;
+            letter-spacing: .3em;
+            color: rgba(232, 160, 32, .25);
+            text-transform: uppercase
+        }
+
+        #idle-msg .is {
+            font-size: 9px;
+            letter-spacing: .2em;
+            color: rgba(232, 160, 32, .12)
+        }
+
+        /* PANELS */
+        .panel {
+            position: fixed;
+            top: calc(var(--TH) + 6px);
+            bottom: calc(var(--BH) + 6px);
+            width: var(--PW);
+
+            display: flex;
+            flex-direction: column;
+
+            overflow: hidden;
+            /* penting */
+        }
+
+        #pl {
+            left: 6px
+        }
+
+        #pr {
+            right: 6px
+        }
+
+        .phdr {
+            flex-shrink: 0;
+            padding: 0 12px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border2);
+            cursor: pointer;
+            user-select: none;
+            background: var(--bg3)
+        }
+
+        .ptitle {
+            font-family: var(--ui);
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: .2em;
+            text-transform: uppercase;
+            color: var(--amber);
+            display: flex;
+            align-items: center;
+            gap: 8px
+        }
+
+        .ptitle.cy {
+            color: var(--cyan)
+        }
+
+        .pdot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: var(--amber);
+            box-shadow: 0 0 6px var(--amber);
+            animation: blink 1.8s infinite
+        }
+
+        .pdot.cy {
+            background: var(--cyan);
+            box-shadow: 0 0 6px var(--cyan)
+        }
+
+        .pdot.off {
+            background: var(--text3);
+            box-shadow: none;
+            animation: none
+        }
+
+        .pmb {
+            width: 20px;
+            height: 20px;
+            border: 1px solid var(--border2);
+            background: var(--bg);
+            border-radius: 2px;
+            color: var(--text2);
+            font-size: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--mono);
+            line-height: 1;
+            transition: all .15s;
+            flex-shrink: 0
+        }
+
+        .pmb:hover {
+            border-color: var(--amber);
+            color: var(--amber)
+        }
+
+        .phead {
+            flex-shrink: 0;
+            /* biar header tidak mengecil */
+        }
+
+        .pbody {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            min-height: 0;
+        }
+
+        .pbody::-webkit-scrollbar {
+            width: 4px
+        }
+
+        .pbody::-webkit-scrollbar-track {
+            background: transparent
+        }
+
+        .pbody::-webkit-scrollbar-thumb {
+            background: var(--border2);
+            border-radius: 2px
+        }
+
+        .pbody::-webkit-scrollbar-thumb:hover {
+            background: var(--amber-dim)
+        }
+
+        .pbody.hidden {
+            display: none
+        }
+
+        /* SECTIONS */
+        .sec {
+            border-bottom: 1px solid var(--border)
+        }
+
+        .shdr {
+            padding: 6px 12px;
+            font-size: 9px;
+            letter-spacing: .18em;
+            text-transform: uppercase;
+            color: var(--text2);
+            background: rgba(255, 255, 255, .012);
+            display: flex;
+            align-items: center;
+            justify-content: space-between
+        }
+
+        .shdr .sn {
+            font-size: 8px;
+            letter-spacing: .05em;
+            color: var(--text3);
+            text-transform: none
+        }
+
+        .sbody {
+            padding: 10px 12px
+        }
+
+        /* STATS */
+        .st {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            margin-bottom: 5px
+        }
+
+        .st:last-child {
+            margin-bottom: 0
+        }
+
+        .stl {
+            font-size: 9px;
+            letter-spacing: .07em;
+            color: var(--text2)
+        }
+
+        .stl .n {
+            font-size: 8px;
+            color: var(--text3);
+            margin-left: 3px
+        }
+
+        .stv {
+            font-size: 15px;
+            font-weight: 500;
+            color: var(--text)
+        }
+
+        .stv.am {
+            color: var(--amber)
+        }
+
+        .stv.gr {
+            color: var(--green)
+        }
+
+        .stv.re {
+            color: var(--red)
+        }
+
+        .stv.bl {
+            color: var(--blue)
+        }
+
+        .stv.cy {
+            color: var(--cyan)
+        }
+
+        .bar {
+            height: 2px;
+            background: var(--border2);
+            border-radius: 1px;
+            margin-bottom: 8px;
+            overflow: hidden
+        }
+
+        .bf {
+            height: 100%;
+            border-radius: 1px;
+            transition: width .3s;
+            background: var(--amber)
+        }
+
+        .bf.gr {
+            background: var(--green)
+        }
+
+        .bf.re {
+            background: var(--red)
+        }
+
+        .bf.bl {
+            background: var(--blue)
+        }
+
+        .dv {
+            height: 1px;
+            background: var(--border);
+            margin: 1px 0
+        }
+
+        /* INFO BOX */
+        .ib {
+            font-size: 9px;
+            line-height: 1.65;
+            color: var(--text2);
+            background: rgba(232, 160, 32, .04);
+            border: 1px solid rgba(232, 160, 32, .12);
+            border-radius: 2px;
+            padding: 8px 10px
+        }
+
+        .ib b {
+            color: var(--amber);
+            font-weight: 500
+        }
+
+        .ib .br {
+            height: 6px
+        }
+
+        /* TRIAL TABLE */
+        .tt {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 9px
+        }
+
+        .tt th {
+            color: var(--text3);
+            letter-spacing: .07em;
+            text-align: left;
+            padding: 2px 4px;
+            border-bottom: 1px solid var(--border)
+        }
+
+        .tt td {
+            color: var(--text2);
+            padding: 3px 4px;
+            border-bottom: 1px solid rgba(42, 40, 32, .4)
+        }
+
+        .tt tr:last-child td {
+            border-bottom: none
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 1px 5px;
+            border-radius: 1px;
+            font-size: 8px;
+            letter-spacing: .05em
+        }
+
+        .badge.hybrid {
+            background: rgba(32, 216, 224, .12);
+            color: var(--cyan);
+            border: 1px solid rgba(32, 216, 224, .25)
+        }
+
+        .badge.sfm {
+            background: rgba(232, 160, 32, .12);
+            color: var(--amber);
+            border: 1px solid rgba(232, 160, 32, .25)
+        }
+
+        /* BUTTONS */
+        .brow {
+            display: flex;
+            gap: 5px
+        }
+
+        .btn {
+            flex: 1;
+            border-radius: 2px;
+            font-family: var(--mono);
+            font-size: 9px;
+            letter-spacing: .1em;
+            padding: 8px 3px;
+            cursor: pointer;
+            text-align: center;
+            transition: all .18s;
+            text-transform: uppercase;
+            border: 1px solid;
+            line-height: 1
+        }
+
+        .btn:disabled {
+            opacity: .22;
+            cursor: not-allowed
+        }
+
+        .btn.st {
+            background: rgba(61, 232, 138, .08);
+            border-color: rgba(61, 232, 138, .35);
+            color: var(--green)
+        }
+
+        .btn.st:not(:disabled):hover {
+            background: rgba(61, 232, 138, .18)
+        }
+
+        .btn.sp {
+            background: rgba(232, 160, 32, .08);
+            border-color: rgba(232, 160, 32, .35);
+            color: var(--amber)
+        }
+
+        .btn.sp:not(:disabled):hover {
+            background: rgba(232, 160, 32, .18)
+        }
+
+        .btn.ca {
+            background: rgba(232, 64, 64, .08);
+            border-color: rgba(232, 64, 64, .35);
+            color: var(--red)
+        }
+
+        .btn.ca:not(:disabled):hover {
+            background: rgba(232, 64, 64, .18)
+        }
+
+        .btn.ex {
+            background: rgba(64, 168, 232, .08);
+            border-color: rgba(64, 168, 232, .28);
+            color: var(--blue);
+            flex: none;
+            width: 100%
+        }
+
+        .btn.ex:hover {
+            background: rgba(64, 168, 232, .18)
+        }
+
+        .bhint {
+            font-size: 8px;
+            line-height: 1.5;
+            color: var(--text3);
+            letter-spacing: .04em;
+            padding: 6px 0 2px
+        }
+
+        /* SPEED */
+        .sprow {
+            display: flex;
+            gap: 4px
+        }
+
+        .spd {
+            flex: 1;
+            border-radius: 2px;
+            font-family: var(--mono);
+            font-size: 9px;
+            letter-spacing: .05em;
+            padding: 6px 2px;
+            cursor: pointer;
+            text-align: center;
+            transition: all .15s;
+            border: 1px solid var(--border2);
+            color: var(--text2);
+            background: var(--bg)
+        }
+
+        .spd:hover {
+            border-color: var(--amber-dim);
+            color: var(--amber)
+        }
+
+        .spd.on {
+            background: rgba(232, 160, 32, .12);
+            border-color: var(--amber);
+            color: var(--amber)
+        }
+
+        /* MODEL */
+        .mgrid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px
+        }
+
+        .mbtn {
+            border-radius: 2px;
+            font-family: var(--mono);
+            font-size: 8px;
+            letter-spacing: .06em;
+            padding: 9px 4px;
+            cursor: pointer;
+            text-align: center;
+            transition: all .18s;
+            border: 1px solid var(--border2);
+            color: var(--text2);
+            background: var(--bg);
+            line-height: 1.6
+        }
+
+        .mbtn:hover {
+            border-color: var(--amber-dim);
+            color: var(--amber)
+        }
+
+        .mbtn.hm {
+            background: rgba(32, 216, 224, .1);
+            border-color: var(--cyan);
+            color: var(--cyan)
+        }
+
+        .mbtn.sm {
+            background: rgba(232, 160, 32, .1);
+            border-color: var(--amber);
+            color: var(--amber)
+        }
+
+        /* SCENARIO */
+        .scgrid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 4px;
+            margin-bottom: 6px
+        }
+
+        .scbtn {
+            border-radius: 2px;
+            font-family: var(--mono);
+            font-size: 8px;
+            letter-spacing: .04em;
+            padding: 7px 2px;
+            cursor: pointer;
+            text-align: center;
+            transition: all .15s;
+            border: 1px solid var(--border2);
+            color: var(--text2);
+            background: var(--bg);
+            line-height: 1.6
+        }
+
+        .scbtn:hover {
+            border-color: var(--green-dim);
+            color: var(--green)
+        }
+
+        .scbtn.on {
+            background: rgba(61, 232, 138, .08);
+            border-color: var(--green);
+            color: var(--green)
+        }
+
+        /* SNF */
+        .snfbox {
+            border: 1px solid rgba(64, 168, 232, .2);
+            border-radius: 2px;
+            background: rgba(64, 168, 232, .04);
+            padding: 9px 10px
+        }
+
+        .snftitle {
+            font-family: var(--ui);
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: .18em;
+            text-transform: uppercase;
+            color: var(--blue);
+            margin-bottom: 4px
+        }
+
+        .snfdesc {
+            font-size: 8px;
+            line-height: 1.6;
+            color: var(--text3);
+            margin-bottom: 7px
+        }
+
+        .snfrow {
+            display: flex;
+            justify-content: space-between;
+            font-size: 9px;
+            margin-bottom: 2px
+        }
+
+        .snfrow .k {
+            color: var(--text3)
+        }
+
+        .snfrow .v {
+            color: var(--blue)
+        }
+
+        .snfload {
+            width: 100%;
+            margin-top: 8px;
+            border-radius: 2px;
+            font-family: var(--mono);
+            font-size: 9px;
+            letter-spacing: .1em;
+            padding: 7px;
+            cursor: pointer;
+            text-align: center;
+            transition: all .15s;
+            border: 1px solid rgba(64, 168, 232, .3);
+            color: var(--blue);
+            background: rgba(64, 168, 232, .06);
+            text-transform: uppercase
+        }
+
+        .snfload:hover {
+            background: rgba(64, 168, 232, .14)
+        }
+
+        .snfload.on {
+            background: rgba(64, 168, 232, .18);
+            border-color: var(--blue)
+        }
+
+        /* PARAMS */
+        .prow {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px
+        }
+
+        .prow:last-child {
+            margin-bottom: 0
+        }
+
+        .plbl {
+            flex: 1;
+            font-size: 9px;
+            line-height: 1.4;
+            color: var(--text2)
+        }
+
+        .plbl .sub {
+            font-size: 8px;
+            color: var(--text3);
+            display: block
+        }
+
+        .pin {
+            width: 62px;
+            background: var(--bg);
+            border: 1px solid var(--border2);
+            border-radius: 2px;
+            color: var(--text);
+            font-family: var(--mono);
+            font-size: 11px;
+            padding: 4px 7px;
+            text-align: right;
+            outline: none;
+            transition: border-color .15s
+        }
+
+        .pin:focus {
+            border-color: var(--amber)
+        }
+
+        .pin:hover {
+            border-color: var(--amber-dim)
+        }
+
+        .pin:disabled {
+            opacity: .3;
+            cursor: not-allowed
+        }
+
+        /* TOGGLES */
+        .togrow {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 6px
+        }
+
+        .togrow:last-child {
+            margin-bottom: 0
+        }
+
+        .toglbl {
+            font-size: 9px;
+            letter-spacing: .06em;
+            color: var(--text2)
+        }
+
+        .tog {
+            position: relative;
+            width: 30px;
+            height: 16px;
+            cursor: pointer;
+            flex-shrink: 0
+        }
+
+        .tog input {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0
+        }
+
+        .togtr {
+            position: absolute;
+            inset: 0;
+            background: var(--bg);
+            border: 1px solid var(--border2);
+            border-radius: 8px;
+            transition: all .2s
+        }
+
+        .togth {
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 8px;
+            height: 8px;
+            background: var(--text3);
+            border-radius: 50%;
+            transition: all .2s
+        }
+
+        .tog input:checked~.togtr {
+            background: rgba(232, 160, 32, .15);
+            border-color: var(--amber)
+        }
+
+        .tog input:checked~.togth {
+            left: 17px;
+            background: var(--amber);
+            box-shadow: 0 0 5px var(--amber)
+        }
+
+
+        /* MODAL */
+        #modal-bg {
+            position: fixed;
+            inset: 0;
+            z-index: 500;
+            background: rgba(10, 11, 13, .86);
+            backdrop-filter: blur(6px);
+            display: none;
+            align-items: center;
+            justify-content: center
+        }
+
+        #modal-bg.show {
+            display: flex
+        }
+
+        .modal {
+            background: var(--bg2);
+            border: 1px solid var(--border2);
+            border-radius: 3px;
+            padding: 26px 30px;
+            max-width: 480px;
+            width: 92%;
+            box-shadow: 0 0 80px rgba(61, 232, 138, .07)
+        }
+
+        .mtitle {
+            font-family: var(--ui);
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: .25em;
+            text-transform: uppercase;
+            color: var(--green);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px
+        }
+
+        .mtitle::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--green);
+            box-shadow: 0 0 10px var(--green);
+            flex-shrink: 0
+        }
+
+        .mgrid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 7px;
+            margin-bottom: 14px
+        }
+
+        .mc {
+            background: var(--bg);
+            border: 1px solid var(--border2);
+            border-radius: 2px;
+            padding: 9px 10px
+        }
+
+        .mcl {
+            font-size: 8px;
+            letter-spacing: .1em;
+            color: var(--text3);
+            margin-bottom: 4px
+        }
+
+        .mcv {
+            font-size: 17px;
+            font-weight: 500;
+            color: var(--text)
+        }
+
+        .mcv.g {
+            color: var(--green)
+        }
+
+        .mcv.a {
+            color: var(--amber)
+        }
+
+        .mcv.r {
+            color: var(--red)
+        }
+
+        .mcv.b {
+            color: var(--blue)
+        }
+
+        .mnote {
+            font-size: 9px;
+            line-height: 1.6;
+            color: var(--text2);
+            background: var(--bg);
+            border: 1px solid var(--border2);
+            border-radius: 2px;
+            padding: 9px 10px;
+            margin-bottom: 14px
+        }
+
+        .mbtns {
+            display: flex;
+            gap: 8px
+        }
+
+        .mbtn2 {
+            flex: 1;
+            padding: 9px;
+            border-radius: 2px;
+            font-family: var(--mono);
+            font-size: 9px;
+            letter-spacing: .1em;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all .2s;
+            border: 1px solid
+        }
+
+        .mbtn2.pr {
+            background: rgba(61, 232, 138, .08);
+            border-color: rgba(61, 232, 138, .35);
+            color: var(--green)
+        }
+
+        .mbtn2.pr:hover {
+            background: rgba(61, 232, 138, .2)
+        }
+
+        .mbtn2.se {
+            background: var(--bg);
+            border-color: var(--border2);
+            color: var(--text2)
+        }
+
+        .mbtn2.se:hover {
+            border-color: var(--amber);
+            color: var(--amber)
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- TOPBAR -->
+    <div id="topbar">
+        <div class="tb-logo">⬡ EVAC SIM</div>
+        <div class="tbi">
+            <div class="tb-dot" id="tb-dot"></div><span class="v" id="tb-status">IDLE</span>
+        </div>
+        <div class="tbi">MDL <span class="v" id="tb-model">HSM</span></div>
+        <div class="tbi">SCN <span class="v" id="tb-scene">SINGLE ROOM</span></div>
+        <div class="tbi">SPD <span class="v" id="tb-spd">1×</span></div>
+        <div class="tbi">FPS <span class="v" id="tb-fps">--</span></div>
+        <div class="tb-tag">WebGL2 GPU Instanced · Browser-Native Evacuation Simulation</div>
+    </div>
+
+    <!-- SIM -->
+    <div id="sim-wrap">
+        <canvas id="glcanvas"></canvas>
+        <canvas id="ovcanvas"></canvas>
+        <div id="idle-msg">
+            <div class="il">Simulation Ready</div>
+            <div class="is">Configure parameters → Press Start</div>
+        </div>
+    </div>
+
+    <!-- LEFT PANEL: ANALYTICS -->
+    <div class="panel" id="pl">
+        <div class="phdr" onclick="togglePanel('l')">
+            <div class="ptitle"><span class="pdot off" id="ldot"></span>Analytics</div>
+            <button class="pmb" id="lmb" onclick="event.stopPropagation();togglePanel('l')">−</button>
+        </div>
+        <div class="pbody" id="lb">
+
+            <div class="sec">
+                <div class="shdr">Simulation Time</div>
+                <div class="sbody">
+                    <div class="st"><span class="stl">ELAPSED</span><span class="stv cy" id="s-t">0.0s</span></div>
+                    <div class="st"><span class="stl">PROGRESS</span><span class="stv gr" id="s-pct">0%</span></div>
+                    <div class="bar">
+                        <div class="bf gr" id="s-pb" style="width:0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sec">
+                <div class="shdr">Agents</div>
+                <div class="sbody">
+                    <div class="st"><span class="stl">ACTIVE <span class="n">(still inside room)</span></span><span
+                            class="stv re" id="s-act">—</span></div>
+                    <div class="bar">
+                        <div class="bf re" id="s-ab" style="width:100%"></div>
+                    </div>
+                    <div class="st"><span class="stl">EVACUATED <span class="n">(reached exit)</span></span><span
+                            class="stv gr" id="s-ev">0</span></div>
+                    <div class="bar">
+                        <div class="bf gr" id="s-eb" style="width:0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sec">
+                <div class="shdr">Collisions</div>
+                <div class="sbody">
+                    <div class="st"><span class="stl">TOTAL COUNT</span><span class="stv am" id="s-col">0</span></div>
+                    <div class="bar">
+                        <div class="bf" id="s-cb" style="width:0%"></div>
+                    </div>
+                    <div class="st"><span class="stl">RATE <span class="n">(per sim-second)</span></span><span
+                            class="stv am" id="s-cr">0.0</span></div>
+                </div>
+            </div>
+
+            <div class="sec">
+                <div class="shdr">Exit Density ρ <span class="sn">avg agents near exits</span></div>
+                <div class="sbody">
+                    <div class="ib">
+                        <b>What is ρ (exit density)?</b><br>
+                        The average number of agents within <b>90 world-units of any exit</b>, divided by the number of
+                        exits. A value of 15 means ~15 agents are pressing toward each exit simultaneously — indicating
+                        a bottleneck. High ρ correlates with longer evacuation time and higher collision rate. This is
+                        the primary metric for comparing HSM vs SFM exit-pressure behaviour.
+                    </div>
+                </div>
+                <div class="sbody" style="padding-top:4px">
+                    <div class="st"><span class="stl">CURRENT ρ <span class="n">(live)</span></span><span class="stv am"
+                            id="s-dn">0.0</span></div>
+                    <div class="st"><span class="stl">PEAK ρ <span class="n">(max this run)</span></span><span
+                            class="stv am" id="s-dpk">0.0</span></div>
+                    <div class="st"><span class="stl">MEAN ρ <span class="n">(sampled every 5s)</span></span><span
+                            class="stv am" id="s-dmn">—</span></div>
+                </div>
+            </div>
+
+            <div class="sec">
+                <div class="shdr">Trial Log <span class="sn">last 10 runs</span></div>
+                <div class="sbody" style="padding:8px 10px">
+                    <div style="max-height:115px;overflow-y:auto">
+                        <table class="tt">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>MDL</th>
+                                    <th>SC</th>
+                                    <th>N</th>
+                                    <th>T(s)</th>
+                                    <th>COL</th>
+                                    <th>ρ̄</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody"></tbody>
+                        </table>
+                    </div>
+                    <button class="btn ex" style="margin-top:8px" onclick="exportLog()">⬇ Export JSON Trial Log</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- RIGHT PANEL: CONTROLS -->
+    <div class="panel" id="pr">
+        <div class="phdr" onclick="togglePanel('r')">
+            <div class="ptitle cy"><span class="pdot cy"></span>Simulation Control</div>
+            <button class="pmb" id="rmb" onclick="event.stopPropagation();togglePanel('r')">−</button>
+        </div>
+        <div class="pbody" id="rb">
+
+            <div class="sec">
+                <div class="shdr">Experiment Control</div>
+                <div class="sbody">
+                    <div class="brow">
+                        <button class="btn st" id="btn-start" onclick="simStart()">▶ Start</button>
+                        <button class="btn sp" id="btn-stop" onclick="simStop()" disabled>⏸ Stop</button>
+                        <button class="btn ca" id="btn-cancel" onclick="simCancel()" disabled>✕ Cancel</button>
+                    </div>
+                    <div class="bhint">
+                        <b style="color:var(--green)">Start</b> — begin / resume &nbsp;·&nbsp;
+                        <b style="color:var(--amber)">Stop</b> — pause &amp; save trial &nbsp;·&nbsp;
+                        <b style="color:var(--red)">Cancel</b> — discard run, reset
+                    </div>
+                </div>
+            </div>
+
+            <div class="sec">
+                <div class="shdr">Playback Speed <span class="sn">statistics unaffected</span></div>
+                <div class="sbody">
+                    <div class="sprow">
+                        <button class="spd" id="sp025" onclick="setSpeed(0.25)">0.25×</button>
+                        <button class="spd" id="sp05" onclick="setSpeed(0.5)">0.5×</button>
+                        <button class="spd on" id="sp1" onclick="setSpeed(1)">1×</button>
+                        <button class="spd" id="sp2" onclick="setSpeed(2)">2×</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sec">
+                <div class="shdr">Behavioral Model</div>
+                <div class="sbody">
+                    <div class="mgrid" style="margin-bottom:10px">
+                        <button class="mbtn hm" id="btn-hsm" onclick="setModel('hybrid')">Hybrid<br>Steering</button>
+                        <button class="mbtn" id="btn-sfm" onclick="setModel('sfm')">Social<br>Force</button>
+                    </div>
+                    <div class="ib">
+                        <b>HSM — Hybrid Steering:</b> Directly computes agent velocity each frame. Goal direction is
+                        primary; separation and obstacle corrections are added and clamped so goal always dominates.
+                        Congestion weight ω (set by τ) grows with local density, increasing separation influence in
+                        packed areas. Smoother flow, less oscillation near exits. <i>(Ye et al. 2024; manuscript
+                            §VII-B)</i>
+                        <div class="br"></div>
+                        <b>SFM — Social Force:</b> Agents experience forces summed to produce acceleration, then
+                        Euler-integrated to velocity. Inter-agent repulsion uses exponential decay
+                        A·exp((r−d<sub>pred</sub>)/B) with collision-predictive lookahead — predicted future distance
+                        rather than instantaneous distance. Produces stronger bottlenecks in dense regimes. <i>(Ding et
+                            al. 2024; Wu et al. 2022; manuscript §VII-A)</i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sec">
+                <div class="shdr">Scenario</div>
+                <div class="sbody">
+
+                    <div style="font-size:8px;letter-spacing:.1em;color:var(--text2);margin-bottom:5px;text-transform:uppercase">Exits</div>
+                    <div class="scgrid" style="margin-bottom:10px">
+                        <button class="scbtn on" id="sc-ex-1" onclick="setScenario(1, selObs)">1<br>Exit</button>
+                        <button class="scbtn" id="sc-ex-2" onclick="setScenario(2, selObs)">2<br>Exits</button>
+                        <button class="scbtn" id="sc-ex-3" onclick="setScenario(3, selObs)">3<br>Exits</button>
+                    </div>
+
+                    <div style="font-size:8px;letter-spacing:.1em;color:var(--text2);margin-bottom:5px;text-transform:uppercase">Obstacles</div>
+                    <div class="scgrid" style="grid-template-columns:1fr 1fr;margin-bottom:10px">
+                        <button class="scbtn on" id="sc-obs-obstacles" onclick="setScenario(selExits, 'obstacles')">With<br>Obstacles</button>
+                        <button class="scbtn" id="sc-obs-open" onclick="setScenario(selExits, 'open')">Open<br>Floor</button>
+                    </div>
+
+                    <div style="font-size:8px;line-height:1.65;color:var(--text3)">
+                        Select <b style="color:var(--text2)">exit count</b> and <b style="color:var(--text2)">floor layout</b> independently — giving 6 controlled combinations to compare HSM vs SFM.<br><br>
+                        <b style="color:var(--text2)">Obstacles</b> — 13 fixed pillars, identical across all exit counts.<br>
+                        <b style="color:var(--text2)">Open Floor</b> — no obstacles; isolates pure exit-count effect.
+                    </div>
+                </div>
+            </div>
+
+            <div class="sec">
+                <div class="shdr">Agent Parameters <span class="sn">click to type</span></div>
+                <div class="sbody">
+                    <div class="prow">
+                        <span class="plbl">Agent Count</span>
+                        <input class="pin" id="p-n" type="number" min="50" max="3000" value="300"
+                            onchange="applyP('n',this)">
+                    </div>
+                    <div class="prow">
+                        <span class="plbl">Goal Strength<span class="sub">force pulling agent to exit</span></span>
+                        <input class="pin" id="p-g" type="number" min="5" max="100" value="28"
+                            onchange="applyP('g',this)">
+                    </div>
+                    <div class="prow">
+                        <span class="plbl">Separation<span class="sub">agent-to-agent repulsion</span></span>
+                        <input class="pin" id="p-s" type="number" min="10" max="350" value="82"
+                            onchange="applyP('s',this)">
+                    </div>
+                    <div class="prow">
+                        <span class="plbl">Max Speed<span class="sub">world-units / sec</span></span>
+                        <input class="pin" id="p-spd" type="number" min="10" max="160" value="55"
+                            onchange="applyP('spd',this)">
+                    </div>
+                    <div class="prow">
+                        <span class="plbl">Congestion τ<span class="sub">HSM density threshold</span></span>
+                        <input class="pin" id="p-cong" type="number" min="1" max="40" value="10"
+                            onchange="applyP('cong',this)">
+                    </div>
+                </div>
+            </div>
+
+            <div class="sec">
+                <div class="shdr">Overlays</div>
+                <div class="sbody">
+                    <div class="togrow">
+                        <span class="toglbl">Density Heatmap</span>
+                        <label class="tog"><input type="checkbox" id="tog-hm" onchange="setHM(this.checked)">
+                            <div class="togtr"></div>
+                            <div class="togth"></div>
+                        </label>
+                    </div>
+                    <div class="togrow">
+                        <span class="toglbl">Exit Zones</span>
+                        <label class="tog"><input type="checkbox" id="tog-ex" checked
+                                onchange="showExZ=this.checked;drawOv()">
+                            <div class="togtr"></div>
+                            <div class="togth"></div>
+                        </label>
+                    </div>
+                    <div class="togrow">
+                        <span class="toglbl">Walls</span>
+                        <label class="tog"><input type="checkbox" id="tog-wl" checked
+                                onchange="showWls=this.checked;drawOv()">
+                            <div class="togtr"></div>
+                            <div class="togth"></div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+
+
+        </div>
+    </div>
+
+    <!-- BOTBAR -->
+    <div id="botbar">
+        <div class="bbi">N <span class="v" id="bt-n">300</span></div>
+        <div class="bbi">EXITS <span class="v" id="bt-ex">1</span></div>
+        <div class="bbi">OBS <span class="v" id="bt-obs">13</span></div>
+        <div class="bbi">WALLS <span class="v" id="bt-wl">4</span></div>
+        <div class="bbi">TRIALS <span class="v" id="bt-tr">0</span></div>
+        <div style="flex:1"></div>
+        <div class="bbi" style="color:var(--text3)">Research Prototype · Evacuation Crowd Simulation</div>
+    </div>
+
+    <!-- COMPLETION MODAL -->
+    <div id="modal-bg">
+        <div class="modal">
+            <div class="mtitle">Evacuation Complete</div>
+            <div class="mgrid">
+                <div class="mc">
+                    <div class="mcl">EVAC TIME</div>
+                    <div class="mcv g" id="m-t">—</div>
+                </div>
+                <div class="mc">
+                    <div class="mcl">AGENTS</div>
+                    <div class="mcv b" id="m-n">—</div>
+                </div>
+                <div class="mc">
+                    <div class="mcl">MODEL</div>
+                    <div class="mcv" id="m-mdl">—</div>
+                </div>
+                <div class="mc">
+                    <div class="mcl">COLLISIONS</div>
+                    <div class="mcv a" id="m-col">—</div>
+                </div>
+                <div class="mc">
+                    <div class="mcl">PEAK ρ</div>
+                    <div class="mcv a" id="m-dn">—</div>
+                </div>
+                <div class="mc">
+                    <div class="mcl">SCENARIO</div>
+                    <div class="mcv b" id="m-sc">—</div>
+                </div>
+            </div>
+            <div class="mnote" id="m-note">—</div>
+            <div class="mbtns">
+                <button class="mbtn2 pr" onclick="doReset();closeModal()">↺ New Trial</button>
+                <button class="mbtn2 se" onclick="exportLog();closeModal()">⬇ Export &amp; Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        'use strict';
+        // ── CANVAS ──────────────────────────────────────────────────────────
+        const GLC = document.getElementById('glcanvas'),
+            OVC = document.getElementById('ovcanvas');
+
+        const gl = GLC.getContext('webgl2'),
+            ov = OVC.getContext('2d');
+        if (!gl) alert('WebGL2 required.');
+        const PW = 272 + 12, TH = 42 + 6, BH = 32 + 6;
+        function resize() {
+            const W = Math.max(100, window.innerWidth - PW * 2), H = Math.max(100, window.innerHeight - TH - BH);
+            GLC.width = W; GLC.height = H; OVC.width = W; OVC.height = H; gl.viewport(0, 0, W, H); drawOv();
+        }
+        window.addEventListener('resize', resize);
+
+        // ── WORLD ───────────────────────────────────────────────────────────
+        const WW = 1000, WH = 660;
+
+        function buildWalls(gaps) {
+            const S = [];
+            function hL(y, x0, x1, gs) {
+                const pts = [x0, ...gs.flatMap(g => [g.cx - g.w / 2, g.cx + g.w / 2]), x1].sort((a, b) => a - b);
+                for (let i = 0; i < pts.length - 1; i += 2)if (pts[i + 1] - pts[i] > 0.5) S.push({ x1: pts[i], y1: y, x2: pts[i + 1], y2: y });
+            }
+            function vL(x, y0, y1, gs) {
+                const pts = [y0, ...gs.flatMap(g => [g.cy - g.w / 2, g.cy + g.w / 2]), y1].sort((a, b) => a - b);
+                for (let i = 0; i < pts.length - 1; i += 2)if (pts[i + 1] - pts[i] > 0.5) S.push({ x1: x, y1: pts[i], x2: x, y2: pts[i + 1] });
+            }
+            hL(0, 0, WW, gaps.filter(g => g.side === 'top'));
+            hL(WH, 0, WW, gaps.filter(g => g.side === 'bottom'));
+            vL(0, 0, WH, gaps.filter(g => g.side === 'left'));
+            vL(WW, 0, WH, gaps.filter(g => g.side === 'right'));
+            return S;
+        }
+        // ── SCENARIO SYSTEM ─────────────────────────────────────────────────
+        // Two independent axes: EXIT COUNT (1/2/3) × OBSTACLE PRESET (obstacles/open)
+        // All combinations share the same spawn zone for a fair controlled experiment.
+
+        const SHARED_SPAWN = { x1: 30, y1: 30, x2: 970, y2: 630 };
+
+        // ── OBSTACLE PRESETS ────────────────────────────────────────────────
+        const OBS_PRESETS = {
+            obstacles: {
+                label: 'Obstacles',
+                obs: [
+                    { x: 150, y: 165, r: 25 }, { x: 150, y: 330, r: 25 }, { x: 150, y: 495, r: 25 },
+                    { x: 350, y: 165, r: 25 }, { x: 350, y: 330, r: 25 }, { x: 350, y: 495, r: 25 },
+                    { x: 550, y: 247, r: 25 }, { x: 550, y: 413, r: 25 },
+                    { x: 750, y: 165, r: 25 }, { x: 750, y: 330, r: 25 }, { x: 750, y: 495, r: 25 },
+                    { x: 880, y: 247, r: 22 }, { x: 880, y: 413, r: 22 }
+                ]
+            },
+            open: {
+                label: 'Open Floor',
+                obs: []
+            }
+        };
+
+        // ── EXIT CONFIGS ────────────────────────────────────────────────────
+        const EXIT_CONFIGS = {
+            1: {
+                label: '1 Exit',
+                exits: [{ x: 1000, y: 330, w: 60, side: 'right', label: 'EXIT A' }],
+                gaps:  [{ side: 'right', cx: 330, w: 60 }]
+            },
+            2: {
+                label: '2 Exits',
+                exits: [
+                    { x: 1000, y: 165, w: 60, side: 'right', label: 'EXIT A' },
+                    { x: 1000, y: 495, w: 60, side: 'right', label: 'EXIT B' }
+                ],
+                gaps: [
+                    { side: 'right', cx: 165, w: 60 },
+                    { side: 'right', cx: 495, w: 60 }
+                ]
+            },
+            3: {
+                label: '3 Exits',
+                exits: [
+                    { x: 1000, y: 132, w: 60, side: 'right', label: 'EXIT A' },
+                    { x: 1000, y: 330, w: 60, side: 'right', label: 'EXIT B' },
+                    { x: 1000, y: 528, w: 60, side: 'right', label: 'EXIT C' }
+                ],
+                gaps: [
+                    { side: 'right', cx: 132, w: 60 },
+                    { side: 'right', cx: 330, w: 60 },
+                    { side: 'right', cx: 528, w: 60 }
+                ]
+            }
+        };
+
+        // Build flat SC array: [1-obs, 1-open, 2-obs, 2-open, 3-obs, 3-open]
+        const SC = [];
+        for (const exitKey of [1, 2, 3]) {
+            for (const obsKey of ['obstacles', 'open']) {
+                const ec = EXIT_CONFIGS[exitKey];
+                const op = OBS_PRESETS[obsKey];
+                SC.push({
+                    name: `${ec.label} · ${op.label}`,
+                    sn: `${exitKey}X-${obsKey.toUpperCase()}`,
+                    exitCount: exitKey,
+                    obsPreset: obsKey,
+                    exits: ec.exits,
+                    walls: buildWalls(ec.gaps),
+                    obs: op.obs,
+                    spawn: SHARED_SPAWN,
+                    defN: 300
+                });
+            }
+        }
+
+        // Active selection state
+        let selExits = 1, selObs = 'obstacles';
+        function getScIdx() {
+            return SC.findIndex(s => s.exitCount === selExits && s.obsPreset === selObs);
+        }
+
+        let CSC = 0, exits = SC[0].exits, walls = SC[0].walls, obs = SC[0].obs, spawnZ = SC[0].spawn;
+
+        // ── PARAMS ──────────────────────────────────────────────────────────
+        const MXN = 3000;
+        let N = 300, model = 'hybrid', simSpd = 1, showHM = false, showExZ = true, showWls = true, showMM = true;
+        let PG = 15.0, PS = 40.0, PSPD = 55, PC = 1.2;
+        const AR = 2.5, SR = 18, SR2 = SR * SR, ER = 22, NR = 90;
+
+        // ── SIM STATE ───────────────────────────────────────────────────────
+        let state = 'idle', simT = 0, evCt = 0, colCt = 0, nearCt = 0, peakD = 0;
+        let densT = 0, densS = 0, densCt = 0, tlog = [], trN = 0, done = false;
+        const HMC = 80, HMR = 50, hg = new Float32Array(HMC * HMR); let hmax = 1;
+
+        // ── AGENTS ──────────────────────────────────────────────────────────
+        class Agent {
+            constructor() { this.x = 0; this.y = 0; this.vx = 0; this.vy = 0; this.out = false; this.tgt = 0; }
+            reset() {
+                let ok = false, t = 0;
+                while (!ok && t < 40) {
+                    this.x = spawnZ.x1 + Math.random() * (spawnZ.x2 - spawnZ.x1);
+                    this.y = spawnZ.y1 + Math.random() * (spawnZ.y2 - spawnZ.y1);
+                    ok = !obs.some(o => { const dx = this.x - o.x, dy = this.y - o.y; return dx * dx + dy * dy < (o.r + 8) * (o.r + 8); });
+                    t++;
+                }
+                this.vx = (Math.random() - .5) * 6; this.vy = (Math.random() - .5) * 6;
+                this.out = false; this.tgt = nearestExit(this.x, this.y);
+            }
+        }
+        const agents = []; for (let i = 0; i < MXN; i++)agents.push(new Agent());
+
+        // ── EXIT TARGETING ──────────────────────────────────────────────────
+        function nearestExit(x, y) {
+            let best = 0, bestD2 = Infinity;
+            for (let i = 0; i < exits.length; i++) {
+                const e = exits[i], dx = x - e.x, dy = y - e.y, d2 = dx * dx + dy * dy;
+                if (d2 < bestD2) { bestD2 = d2; best = i; }
+            }
+            return best;
+        }
+        const GC = SR, GCO = Math.ceil(WW / GC) + 1, GRO = Math.ceil(WH / GC) + 1;
+        const grid = Array.from({ length: GCO * GRO }, () => []);
+        function buildGrid() {
+            for (const c of grid) c.length = 0;
+            for (let i = 0; i < N; i++) {
+                const a = agents[i]; if (a.out) continue;
+                const cx = Math.floor(a.x / GC), cy = Math.floor(a.y / GC);
+                if (cx >= 0 && cx < GCO && cy >= 0 && cy < GRO) grid[cy * GCO + cx].push(i);
+            }
+        }
+        function nbrs(x, y) {
+            const cx = Math.floor(x / GC), cy = Math.floor(y / GC), o = [];
+            for (let dy = -1; dy <= 1; dy++)for (let dx = -1; dx <= 1; dx++) {
+                const nx = cx + dx, ny = cy + dy; if (nx < 0 || nx >= GCO || ny < 0 || ny >= GRO) continue;
+                for (const i of grid[ny * GCO + nx]) o.push(i);
+            }
+            return o;
+        }
+
+        // ── WALL PHYSICS ────────────────────────────────────────────────────
+        function ptSeg(px, py, ax, ay, bx, by) {
+            const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy;
+            if (l2 === 0) return { d2: (px - ax) ** 2 + (py - ay) ** 2, nx: px - ax, ny: py - ay };
+            const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / l2));
+            const cx = ax + t * dx, cy = ay + t * dy, nx = px - cx, ny = py - cy;
+            return { d2: nx * nx + ny * ny, nx, ny };
+        }
+        function wallF(a) {
+            let fx = 0, fy = 0; const WZ = 24, WS = 7;
+            for (const w of walls) {
+                const { d2, nx, ny } = ptSeg(a.x, a.y, w.x1, w.y1, w.x2, w.y2);
+                if (d2 > 0 && d2 < WZ * WZ) { const d = Math.sqrt(d2), s = (WZ - d) * WS; fx += nx / d * s; fy += ny / d * s; }
+            }
+            const M = 5;
+            if (a.x < M) fx += (M - a.x) * 5; if (a.x > WW - M) fx -= (a.x - (WW - M)) * 5;
+            if (a.y < M) fy += (M - a.y) * 5; if (a.y > WH - M) fy -= (a.y - (WH - M)) * 5;
+            return [fx, fy];
+        }
+        function resolveWall(a) {
+            const R = AR + 1;
+            for (const w of walls) {
+                const { d2, nx, ny } = ptSeg(a.x, a.y, w.x1, w.y1, w.x2, w.y2);
+                if (d2 > 0 && d2 < R * R) {
+                    const d = Math.sqrt(d2); a.x += nx / d * (R - d); a.y += ny / d * (R - d);
+                    const dot = (a.vx * nx + a.vy * ny) / d2; a.vx -= 1.6 * dot * nx; a.vy -= 1.6 * dot * ny;
+                }
+            }
+            a.x = Math.max(0, Math.min(WW, a.x)); a.y = Math.max(0, Math.min(WH, a.y));
+        }
+        function resolveObstacle(a) {
+            for (const o of obs) {
+                const dx = a.x - o.x;
+                const dy = a.y - o.y;
+                const d = Math.sqrt(dx * dx + dy * dy);
+
+                const R = o.r + AR;
+
+                if (d < R) {
+                    const nx = dx / d;
+                    const ny = dy / d;
+
+                    a.x = o.x + nx * R;
+                    a.y = o.y + ny * R;
+
+                    const dot = a.vx * nx + a.vy * ny;
+                    a.vx -= 1.5 * dot * nx;
+                    a.vy -= 1.5 * dot * ny;
+                }
+            }
+        }
+
+        // ── FORCES ──────────────────────────────────────────────────────────
+        // HSM: force-based steering with congestion-aware nudge (velocity blending via forces)
+        //   Same goal/sep/obs structure as original, but hybF adds a density-reactive
+        //   perpendicular component — agents spread laterally when crowded near exits.
+        //   Ref: Ye et al. (2024), manuscript §VII-B.
+        //
+        // SFM: Social Force Model with exponential decay + collision-predictive lookahead
+        //   F_goal uses relaxation-time form: (v0·ê - v)/τ  (drives to preferred speed)
+        //   F_agents = A·exp((r−d_pred)/B)·n̂  where d_pred is predicted future distance
+        //   This is the Ding et al. (2024) improvement over the original 1995 SFM.
+        //   Ref: Ding et al. (2024) [4], Wu et al. (2022) [3], manuscript §VII-A.
+
+        function vl(x, y) { return Math.sqrt(x * x + y * y) || 0.0001; }
+
+        // ── shared goal force (HSM) ──
+        function goalF(a) { const e = exits[a.tgt], dx = e.x - a.x, dy = e.y - a.y, l = vl(dx, dy); return [dx / l * PG, dy / l * PG]; }
+
+        // ── shared separation (HSM) ──
+        function sepF(a, nb) {
+            let fx = 0, fy = 0;
+            for (const ni of nb) {
+                const b = agents[ni]; if (b === a || b.out) continue;
+                const dx = a.x - b.x, dy = a.y - b.y, d2 = dx * dx + dy * dy; if (d2 === 0 || d2 > SR2) continue;
+                const d = Math.sqrt(d2); fx += dx / d * PS / (d + 5); fy += dy / d * PS / (d + 5);
+            }
+            return [fx, fy];
+        }
+
+        // ── shared obstacle force (HSM) ──
+        function obsF(a) {
+            let fx = 0, fy = 0;
+            for (const o of obs) {
+                const dx = a.x - o.x, dy = a.y - o.y, d = vl(dx, dy), sf = o.r + 16;
+                if (d < sf) { const s = (sf - d) * 6; fx += dx / d * s; fy += dy / d * s; }
+            }
+            return [fx, fy];
+        }
+
+        // ── HSM congestion-aware nudge: perpendicular deflection when crowded ──
+        function hybF(a, nb) {
+            let dens = 0; for (const ni of nb) if (!agents[ni].out && agents[ni] !== a) dens++;
+            const cong = Math.min(dens / PC, 1); let fx = 0, fy = 0;
+            if (cong > 0.45) { const e = exits[a.tgt], dx = e.x - a.x, dy = e.y - a.y; fx += -dy * .02 * cong; fy += dx * .02 * cong; }
+            return [fx, fy];
+        }
+
+        // ── SFM goal force: relaxation-time form  F = (v0·ê − v) / τ  (Eq. 5) ──
+        function sfmGoalF(a) {
+            const e = exits[a.tgt], dx = e.x - a.x, dy = e.y - a.y, l = vl(dx, dy), TAU = 0.5;
+            return [(dx / l * PG - a.vx) / TAU, (dy / l * PG - a.vy) / TAU];
+        }
+
+        // ── SFM agent repulsion: A·exp((r−d_pred)/B)  collision-predictive  (Eq. 6) ──
+        const SFM_A = 220, SFM_B = 9, SFM_LOOK = 0.35;
+        function sfmAgentF(a, nb) {
+            let fx = 0, fy = 0;
+            for (const ni of nb) {
+                const b = agents[ni]; if (b === a || b.out) continue;
+                const dx = a.x - b.x, dy = a.y - b.y, d2 = dx * dx + dy * dy; if (d2 === 0 || d2 > SR2) continue;
+                // predicted relative position after LOOK seconds
+                const px = dx + (a.vx - b.vx) * SFM_LOOK, py = dy + (a.vy - b.vy) * SFM_LOOK;
+                const d_pred = Math.max(vl(px, py), 0.01), d_now = Math.sqrt(d2);
+                const mag = SFM_A * Math.exp((AR * 2 - d_pred) / SFM_B);
+                fx += dx / d_now * mag; fy += dy / d_now * mag;
+            }
+            return [fx, fy];
+        }
+
+        // ── SFM obstacle repulsion: exponential decay from surface ──
+        const SFM_AW = 160, SFM_BW = 10;
+        function sfmObsF(a) {
+            let fx = 0, fy = 0;
+            for (const o of obs) {
+                const dx = a.x - o.x, dy = a.y - o.y, d = vl(dx, dy);
+                const ds = Math.max(d - o.r, 0.01);
+                if (ds < SR) { const mag = SFM_AW * Math.exp(-ds / SFM_BW); fx += dx / d * mag; fy += dy / d * mag; }
+            }
+            return [fx, fy];
+        }
+
+        // ── UPDATE ──────────────────────────────────────────────────────────
+        function update(dt) {
+            buildGrid(); let fc = 0; nearCt = 0;
+            for (let i = 0; i < N; i++) {
+                const a = agents[i]; if (a.out) continue;
+                const e = exits[a.tgt], edx = a.x - e.x, edy = a.y - e.y;
+                if (edx * edx + edy * edy < ER * ER) { a.out = true; evCt++; continue; }
+                if (edx * edx + edy * edy < NR * NR) nearCt++;
+                // Re-evaluate nearest exit each frame — keeps agents heading to the
+                // closest opening rather than locking onto a suboptimal one at spawn.
+                a.tgt = nearestExit(a.x, a.y);
+                const nb = nbrs(a.x, a.y);
+                const [wx, wy] = wallF(a);
+                let ax, ay;
+                if (model === 'hybrid') {
+                    // HSM: goal + separation + obstacle + congestion nudge, all as forces → accel
+                    const [gx, gy] = goalF(a), [sx, sy] = sepF(a, nb), [ox, oy] = obsF(a);
+                    let vx = gx + sx + ox;
+                    let vy = gy + sy + oy;
+
+                    const sp = Math.sqrt(vx * vx + vy * vy) || 0.0001;
+                    vx = vx / sp * PSPD;
+                    vy = vy / sp * PSPD;
+
+                    a.vx = vx; a.vy = vy;
+                } else {
+                    // SFM: relaxation-time goal + exponential repulsion + exp obstacle + walls
+                    const [gx, gy] = sfmGoalF(a), [sx, sy] = sfmAgentF(a, nb), [ox, oy] = sfmObsF(a);
+                    ax = gx + sx + ox + wx; ay = gy + sy + oy + wy;
+                    a.vx += ax * dt; a.vy += ay * dt;
+                }
+                const sp = vl(a.vx, a.vy); if (sp > PSPD) { a.vx *= PSPD / sp; a.vy *= PSPD / sp; }
+                a.x += a.vx * dt; a.y += a.vy * dt; resolveObstacle(a); resolveWall(a);
+                for (const ni of nb) {
+                    if (ni <= i) continue; const b = agents[ni]; if (b.out) continue;
+                    const cx = a.x - b.x, cy = a.y - b.y; if (cx * cx + cy * cy < (AR * 2.2) * (AR * 2.2)) fc++;
+                }
+            }
+            colCt += fc; simT += dt; densT += dt;
+            if (densT >= 5) { densS += nearCt / exits.length; densCt++; densT = 0; }
+            const cd = nearCt / exits.length; if (cd > peakD) peakD = cd;
+            if (showHM) for (let i = 0; i < N; i++) {
+                const a = agents[i]; if (a.out) continue;
+                const hx = Math.floor(a.x / WW * HMC), hy = Math.floor(a.y / WH * HMR);
+                if (hx >= 0 && hx < HMC && hy >= 0 && hy < HMR) { hg[hy * HMC + hx] += dt; if (hg[hy * HMC + hx] > hmax) hmax = hg[hy * HMC + hx]; }
+            }
+            if (!done && evCt >= N) { done = true; onComplete(); }
+        }
+
+        // ── WEBGL ────────────────────────────────────────────────────────────
+        const VS = `#version 300 es
+in vec2 ap;in vec2 ao;in float aa;in float as_;
+uniform vec2 ur;uniform vec2 uw;out float vs;
+void main(){
+  float co=cos(aa),si=sin(aa);
+  vec2 rot=vec2(ap.x*co-ap.y*si, ap.x*si+ap.y*co);
+  vec2 sc=ur/uw;vec2 p=(ao*sc)+rot;
+  vec2 c=(p/ur)*2.0-1.0;gl_Position=vec4(c.x,-c.y,0,1);vs=as_;
+}`;
+        const FS = `#version 300 es
+precision highp float;
+uniform vec4 ucm;uniform vec4 ucc;in float vs;out vec4 oC;
+void main(){if(vs<0.05)discard;oC=mix(ucm,ucc,clamp(vs-1.0,0.0,1.0));}`;
+        function mkS(t, s) {
+            const sh = gl.createShader(t); gl.shaderSource(sh, s); gl.compileShader(sh);
+            if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(sh)); return sh;
+        }
+        const prog = gl.createProgram();
+        gl.attachShader(prog, mkS(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, mkS(gl.FRAGMENT_SHADER, FS));
+        gl.linkProgram(prog); gl.useProgram(prog);
+        gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        const uR = gl.getUniformLocation(prog, 'ur'), uW = gl.getUniformLocation(prog, 'uw'),
+            uCM = gl.getUniformLocation(prog, 'ucm'), uCC = gl.getUniformLocation(prog, 'ucc');
+        // Directional triangle: tip in local +y (forward), base behind.
+        // Vertex shader rotates each instance to face its velocity direction.
+        const NS = 1; // 1 triangle = 3 vertices
+        const cv = [
+            0, AR * 1.6,   // tip (front)
+            -AR, -AR * 0.9,   // base left
+            AR, -AR * 0.9,   // base right
+        ];
+        const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
+        const gb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, gb);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cv), gl.STATIC_DRAW);
+        const lp = gl.getAttribLocation(prog, 'ap'); gl.enableVertexAttribArray(lp); gl.vertexAttribPointer(lp, 2, gl.FLOAT, false, 0, 0);
+        const ib = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, ib);
+        gl.bufferData(gl.ARRAY_BUFFER, MXN * 4 * 4, gl.DYNAMIC_DRAW);
+        const lo = gl.getAttribLocation(prog, 'ao'); gl.enableVertexAttribArray(lo); gl.vertexAttribPointer(lo, 2, gl.FLOAT, false, 16, 0); gl.vertexAttribDivisor(lo, 1);
+        const la = gl.getAttribLocation(prog, 'aa'); gl.enableVertexAttribArray(la); gl.vertexAttribPointer(la, 1, gl.FLOAT, false, 16, 8); gl.vertexAttribDivisor(la, 1);
+        const ls = gl.getAttribLocation(prog, 'as_'); gl.enableVertexAttribArray(ls); gl.vertexAttribPointer(ls, 1, gl.FLOAT, false, 16, 12); gl.vertexAttribDivisor(ls, 1);
+        const id = new Float32Array(MXN * 4);
+
+        // ── OVERLAY ──────────────────────────────────────────────────────────
+        function drawOv() {
+            const W = OVC.width, H = OVC.height, sx = W / WW, sy = H / WH;
+            ov.clearRect(0, 0, W, H);
+            if (showHM) {
+                const cw = W / HMC, ch = H / HMR;
+                for (let r = 0; r < HMR; r++)for (let c = 0; c < HMC; c++) {
+                    const v = hg[r * HMC + c] / hmax; if (v < 0.01) continue;
+                    ov.fillStyle = `rgba(${Math.round(v * 255)},${Math.round((1 - v) * 55)},${Math.round((1 - v) * 190)},${Math.min(v * .72, .62)})`;
+                    ov.fillRect(c * cw, r * ch, cw + 1, ch + 1);
+                }
+            }
+            // always draw obstacles
+            for (const o of obs) {
+                ov.beginPath(); ov.arc(o.x * sx, o.y * sy, o.r * sx, 0, Math.PI * 2);
+                ov.fillStyle = 'rgba(232,160,32,0.11)'; ov.fill();
+                ov.strokeStyle = 'rgba(232,160,32,0.5)'; ov.lineWidth = 1.5; ov.stroke();
+            }
+            if (showWls) {
+                ov.strokeStyle = 'rgba(232,160,32,0.65)'; ov.lineWidth = 2.5; ov.lineCap = 'round';
+                for (const w of walls) { ov.beginPath(); ov.moveTo(w.x1 * sx, w.y1 * sy); ov.lineTo(w.x2 * sx, w.y2 * sy); ov.stroke(); }
+            }
+            if (showExZ) {
+                for (const e of exits) {
+                    const px = e.x * sx, py = e.y * sy;
+                    ov.beginPath(); ov.arc(px, py, ER * sx * 1.3, 0, Math.PI * 2);
+                    ov.fillStyle = 'rgba(61,232,138,0.1)'; ov.fill();
+                    ov.strokeStyle = 'rgba(61,232,138,0.65)'; ov.lineWidth = 1.5; ov.setLineDash([3, 3]); ov.stroke(); ov.setLineDash([]);
+                    ov.beginPath(); ov.arc(px, py, NR * sx * .97, 0, Math.PI * 2);
+                    ov.strokeStyle = 'rgba(61,232,138,0.08)'; ov.lineWidth = 1; ov.stroke();
+                    ov.font = `${Math.max(8, sx * 9)}px 'JetBrains Mono'`;
+                    ov.fillStyle = 'rgba(61,232,138,0.65)'; ov.textAlign = 'center';
+                    const ly = py < H * .12 ? py + ER * sy * 2.8 : py - ER * sy * 1.8;
+                    ov.fillText(e.label || 'EXIT', px, ly);
+                }
+            }
+        }
+
+        // ── RENDER LOOP ──────────────────────────────────────────────────────
+        let lT = performance.now(), fC = 0, fT = 0, uiT = 0, ovT = 0;
+        function loop() {
+            const now = performance.now(), wdt = Math.min((now - lT) / 1000, .05); lT = now;
+            const sdt = (state === 'running') ? wdt * simSpd : 0;
+            if (sdt > 0) update(sdt);
+            for (let i = 0; i < N; i++) {
+                const a = agents[i]; id[i * 4] = a.x; id[i * 4 + 1] = a.y;
+                if (a.out) { id[i * 4 + 2] = 0; id[i * 4 + 3] = 0; continue; }
+                id[i * 4 + 2] = Math.atan2(a.vx, a.vy); // angle: tip faces velocity direction
+                const e = exits[a.tgt], dx = a.x - e.x, dy = a.y - e.y;
+                id[i * 4 + 3] = (dx * dx + dy * dy < NR * NR) ? 2 : 1;
+            }
+            gl.bindBuffer(gl.ARRAY_BUFFER, ib); gl.bufferSubData(gl.ARRAY_BUFFER, 0, id.subarray(0, N * 4));
+            gl.uniform2f(uR, GLC.width, GLC.height); gl.uniform2f(uW, WW, WH);
+            gl.clearColor(.04, .043, .05, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+            gl.bindVertexArray(vao);
+            const isH = model === 'hybrid';
+            gl.uniform4f(uCM, isH ? .08 : .91, isH ? .85 : .63, isH ? .88 : .08, .88);
+            gl.uniform4f(uCC, .95, .28, .06, .96);
+            gl.drawArraysInstanced(gl.TRIANGLES, 0, 3, N);
+            fC++; fT += wdt; uiT += wdt; ovT += wdt;
+            if (fT >= .5) { G('tb-fps').textContent = Math.round(fC / fT); fC = 0; fT = 0; }
+            if (uiT >= .1) { updateUI(); uiT = 0; }
+            if (ovT >= .2) { drawOv(); ovT = 0; }
+            requestAnimationFrame(loop);
+        }
+        function updateUI() {
+            const act = Math.max(0, N - evCt);
+            G('s-t').textContent = simT.toFixed(1) + 's';
+            G('s-pct').textContent = Math.round(evCt / N * 100) + '%';
+            G('s-pb').style.width = Math.min(evCt / N * 100, 100) + '%';
+            G('s-act').textContent = act; G('s-ab').style.width = (act / N * 100) + '%';
+            G('s-ev').textContent = evCt; G('s-eb').style.width = Math.min(evCt / N * 100, 100).toFixed(1) + '%';
+            G('s-col').textContent = colCt; G('s-cb').style.width = Math.min(colCt / 1500 * 100, 100) + '%';
+            G('s-cr').textContent = simT > 0 ? (colCt / simT).toFixed(1) : '0.0';
+            G('s-dn').textContent = (nearCt / exits.length).toFixed(1);
+            G('s-dpk').textContent = peakD.toFixed(1);
+            G('s-dmn').textContent = densCt > 0 ? (densS / densCt).toFixed(1) : '—';
+            G('bt-n').textContent = N;
+        }
+        function G(id) { return document.getElementById(id); }
+
+        // ── STATE MACHINE ─────────────────────────────────────────────────────
+        function setState(s) {
+            state = s;
+            G('btn-start').disabled = (s === 'running');
+            G('btn-start').textContent = s === 'paused' ? '▶ Resume' : '▶ Start';
+            G('btn-stop').disabled = (s === 'idle' || s === 'done');
+            G('btn-cancel').disabled = (s === 'idle');
+            const dot = G('tb-dot'), txt = G('tb-status');
+            if (s === 'running') { dot.className = 'tb-dot run'; txt.textContent = 'RUNNING'; }
+            else if (s === 'paused') { dot.className = 'tb-dot pause'; txt.textContent = 'PAUSED'; }
+            else if (s === 'done') { dot.className = 'tb-dot done'; txt.textContent = 'COMPLETE'; }
+            else { dot.className = 'tb-dot'; txt.textContent = 'IDLE'; }
+            G('ldot').className = (s === 'running') ? 'pdot' : 'pdot off';
+            G('idle-msg').className = (s === 'idle') ? 'show' : '';
+        }
+        function initA() { for (let i = 0; i < N; i++)agents[i].reset(); for (let i = N; i < MXN; i++)agents[i].out = true; }
+        function simStart() {
+            if (state === 'paused') { setState('running'); return; }
+            evCt = 0; colCt = 0; simT = 0; nearCt = 0; peakD = 0; densT = 0; densS = 0; densCt = 0; done = false;
+            if (showHM) { hg.fill(0); hmax = 1; } initA(); setState('running');
+        }
+        function simStop() { if (state === 'running') { setState('paused'); recTrial(); } }
+        function doReset() {
+            setState('idle'); evCt = 0; colCt = 0; simT = 0; nearCt = 0; peakD = 0;
+            densT = 0; densS = 0; densCt = 0; done = false;
+            if (showHM) { hg.fill(0); hmax = 1; } initA(); drawOv(); updateUI();
+        }
+        function simCancel() { doReset(); }
+
+        // ── TRIAL LOG ─────────────────────────────────────────────────────────
+        function recTrial() {
+            if (simT < 1) return; trN++;
+            const sc = SC[CSC];
+            const e = {
+                trial: trN, model, scenario: sc.sn, n: N, evacTime: +simT.toFixed(1),
+                collisions: colCt, peakDensity: +peakD.toFixed(1),
+                meanDensity: densCt > 0 ? +(densS / densCt).toFixed(1) : 0,
+                params: { goal: PG, sep: PS, spd: PSPD, cong: PC }, timestamp: new Date().toISOString()
+            };
+            tlog.push(e); G('bt-tr').textContent = tlog.length;
+            const tb = G('tbody'), tr = document.createElement('tr');
+            tr.innerHTML = `<td>${trN}</td><td><span class="badge ${model}">${model.toUpperCase()}</span></td>` +
+                `<td>${sc.sn}</td><td>${N}</td><td>${e.evacTime}s</td><td>${colCt}</td><td>${e.meanDensity}</td>`;
+            tb.appendChild(tr); if (tb.children.length > 10) tb.removeChild(tb.firstChild);
+        }
+        function onComplete() {
+            recTrial(); setState('done');
+            const sc = SC[CSC];
+            G('m-t').textContent = simT.toFixed(1) + 's'; G('m-n').textContent = N;
+            G('m-mdl').textContent = model === 'hybrid' ? 'HSM' : 'SFM';
+            G('m-col').textContent = colCt; G('m-dn').textContent = peakD.toFixed(1); G('m-sc').textContent = sc.sn;
+            let note = `${sc.name}: ${N} agents evacuated in ${simT.toFixed(1)}s using ${model === 'hybrid' ? 'Hybrid Steering (HSM)' : 'Social Force Model (SFM)'}. Exits: ${exits.length}. Collisions: ${colCt}. Peak exit density ρ: ${peakD.toFixed(1)}.`;
+            G('m-note').textContent = note; G('modal-bg').classList.add('show');
+        }
+        function closeModal() { G('modal-bg').classList.remove('show'); }
+
+        // ── CONTROLS ──────────────────────────────────────────────────────────
+        function setModel(m) {
+            model = m;
+            G('btn-hsm').className = 'mbtn' + (m === 'hybrid' ? ' hm' : '');
+            G('btn-sfm').className = 'mbtn' + (m === 'sfm' ? ' sm' : '');
+            G('tb-model').textContent = m === 'hybrid' ? 'HSM' : 'SFM';
+        }
+        function setScenario(exitCount, obsPreset) {
+            selExits = exitCount;
+            selObs = obsPreset;
+            CSC = getScIdx();
+            const sc = SC[CSC];
+
+            exits = sc.exits;
+            walls = sc.walls;
+            obs = sc.obs;
+            spawnZ = sc.spawn;
+
+            G('p-n').disabled = false;
+            N = parseInt(G('p-n').value) || sc.defN;
+
+            G('tb-scene').textContent = sc.name;
+            G('bt-ex').textContent = exits.length;
+            G('bt-obs').textContent = obs.length;
+            G('bt-wl').textContent = walls.length;
+
+            // Update exit-count buttons
+            [1, 2, 3].forEach(n => {
+                const el = G('sc-ex-' + n);
+                if (el) el.className = 'scbtn' + (n === exitCount ? ' on' : '');
+            });
+            // Update obstacle preset buttons
+            ['obstacles', 'open'].forEach(k => {
+                const el = G('sc-obs-' + k);
+                if (el) el.className = 'scbtn' + (k === obsPreset ? ' on' : '');
+            });
+
+            doReset();
+        }
+        function setSpeed(s) {
+            simSpd = s;['sp025', 'sp05', 'sp1', 'sp2'].forEach(id => G(id).className = 'spd');
+            const m = { 0.25: 'sp025', 0.5: 'sp05', 1: 'sp1', 2: 'sp2' }; if (m[s]) G(m[s]).className = 'spd on';
+            G('tb-spd').textContent = s + '×';
+        }
+        function applyP(k, el) {
+            const R = { n: [50, 3000], g: [5, 100], s: [10, 350], spd: [10, 160], cong: [1, 40] };
+            const [mn, mx] = R[k] || [0, 9999]; let v = parseFloat(el.value);
+            v = Math.max(mn, Math.min(mx, isNaN(v) ? mn : v)); el.value = v;
+            if (k === 'n' && !SC[CSC].fixedN) { N = v; G('bt-n').textContent = v; }
+            else if (k === 'g') PG = v; else if (k === 's') PS = v; else if (k === 'spd') PSPD = v; else if (k === 'cong') PC = v;
+        }
+        function setHM(on) { showHM = on; if (on) { hg.fill(0); hmax = 1; } drawOv(); }
+        function toggleMM() { showMM = !showMM; G('mm-wrap').style.display = showMM ? '' : 'none'; G('mm-tog').textContent = showMM ? '−' : '+'; }
+        function togglePanel(side) {
+            const bid = side === 'l' ? 'lb' : 'rb', mid = side === 'l' ? 'lmb' : 'rmb';
+            const b = G(bid), hidden = b.classList.contains('hidden');
+            b.classList.toggle('hidden', !hidden); G(mid).textContent = hidden ? '−' : '+';
+        }
+
+        // ── EXPORT ────────────────────────────────────────────────────────────
+        function exportLog() {
+            const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), totalTrials: tlog.length, trials: tlog }, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'evac_trial_log.json'; a.click();
+        }
+
+        // ── INIT ──────────────────────────────────────────────────────────────
+        resize(); setScenario(1, 'obstacles'); setSpeed(1); setState('idle'); loop();
+    </script>
+</body>
+
+</html>
